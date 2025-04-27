@@ -1,7 +1,6 @@
 import { AzureChatOpenAI, AzureOpenAIEmbeddings } from "@langchain/openai";
 import { TextLoader } from "langchain/document_loaders/fs/text";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { FaissStore } from "@langchain/community/vectorstores/faiss";
 
 
@@ -12,7 +11,6 @@ const embeddings = new AzureOpenAIEmbeddings({
     temperature: 0,
     azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_EMBEDDING_DEPLOYMENT_NAME
 });
-
 
 let vectorStore
 
@@ -30,6 +28,7 @@ async function loadManifesto() {
 }
 
 async function askQuestion(){
+    vectorStore = await FaissStore.load("manifestoDatabase", embeddings); // dezelfde naam van de directory
     const relevantDocs = await vectorStore.similaritySearch("What is this document about?",3);
     const context = relevantDocs.map(doc => doc.pageContent).join("\n\n");
     const response = await model.invoke([
@@ -41,4 +40,4 @@ async function askQuestion(){
 }
 
 await loadManifesto()
-await askQuestion("What is this document about?")
+await askQuestion("who are you")

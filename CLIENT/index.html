@@ -6,18 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat UI</title>
     <link rel="stylesheet" href="style.css">
-    
+
 </head>
 
 <body>
     <div class="chat-container">
-        <h1>Chat with AI</h1>
+        <img src="/CLIENT/img/commiebot.jpg" alt="">
+        <h1>ask COMMIE-BOT</h1>
         <div class="input-container">
             <input type="text" id="message" placeholder="Type your message here..." />
             <button id="sendButton">Send</button>
+            <button id="sendButtonEmbed">Search the archives</button>
+
         </div>
+        <p>Commie-bot says:</p>
         <div id="response" class="response-box"></div>
     </div>
+
     <script src="script.js"></script>
 </body>
 

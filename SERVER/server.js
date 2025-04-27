@@ -1,47 +1,100 @@
-import { AzureChatOpenAI } from "@langchain/openai"
+import {AzureChatOpenAI, AzureOpenAIEmbeddings} from "@langchain/openai";
 
-import express from "express";
+import express, {response} from "express";
 import cors from "cors";
-import { FaissStore } from "@langchain/community/vectorstores/faiss";
-import { VectorStore } from "@langchain/core/vectorstores";
+import {TextLoader} from "langchain/document_loaders/fs/text";
+import {RecursiveCharacterTextSplitter} from "langchain/text_splitter";
+import {FaissStore} from "@langchain/community/vectorstores/faiss";
+
 
 const app = express()
 app.use(cors())
-
-const model = new AzureChatOpenAI({ temperature: 1 });
-
+app.use(express.json());
 
 
-async function createJoke() {
-    const result = await model.invoke("tell me a joke")
-    return result.content
+const model = new AzureChatOpenAI({temperature: 1});
+const embeddings = new AzureOpenAIEmbeddings({
+    temperature: 0,
+    azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_EMBEDDING_DEPLOYMENT_NAME
+});
+let vectorStore
+
+
+
+async function loadManifesto() {
+    const loader = new TextLoader("./public/manifesto.txt");
+    const docs = await loader.load();
+    const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 200});
+    const splitDocs = await textSplitter.splitDocuments(docs);
+    console.log(`created ${splitDocs.length} text chunks`)
+    vectorStore = await FaissStore.fromDocuments(splitDocs, embeddings);
+    await vectorStore.save("manifestoDatabase"); // geef hier de naam van de directory waar je de data gaat opslaan
+    console.log('vector store created')
 }
-async function sendPrompt(prompt) {
-    const result = await model.invoke(prompt)
-    return result.content
-}
+await loadManifesto()
 
 
 
-app.get('/', async (req, res) => {
-    const result = await tellJoke()
-    res.json({ message: result })
-})
+app.post("/askEmbed", async (req, res) => {
+    let prompt = req.body.prompt
 
-async function tellJoke() {
-    const joke = await model.invoke("Tell me a Javascript joke!")
-    return joke.content
-}
+    let response = await sendPromptEmbed(prompt)
 
-app.post("/ask", async (req, res) => {
-    let prompt = req.body.promt
-    let result = await sendPrompt(prompt)
     console.log("the user asked for " + prompt)
-    console.log(prompt)
-    console.log(result)
-    res.json({ message: result })
+    console.log(response)
+
+    res.json({message: response})
 })
 
+
+async function sendPromptEmbed(prompt) {
+    if (typeof prompt !== "string") {
+        throw new Error("Prompt must be a string!");
+    }
+
+    if (!vectorStore) {
+        vectorStore = await FaissStore.load("manifestoDatabase", embeddings);
+    }
+    const relevantDocs = await vectorStore.similaritySearch(prompt, 3);
+    const context = relevantDocs.map(doc => doc.pageContent).join("\n\n");
+    const response = await model.invoke([
+        { role: "system", content: "Use the following context to answer the user's question. Only use information from the context." },
+        { role: "user", content: `Context: ${context}\n\nQuestion: ${prompt}` }
+    ]);
+    console.log("\nAnswer found:");
+    console.log(response.content);
+
+    return response.content;
+}
+
+
+
+
+const messages = [
+    ['system', "You are marxist intellectual. Seek to educate me, a unaware member of the proletariat, who does not yet grasp the hardship that the ruling class has subjected me to. "],
+]
+app.post("/ask", async (req, res) => {
+    let prompt = req.body.prompt
+    messages.push(
+        ['human', `Reply to my prompt as short as you can: ${prompt}`]
+    )
+    let response = await sendPrompt(messages)
+
+    console.log("the user asked for " + prompt)
+    console.log(messages)
+    console.log(response)
+
+    res.json({message: response})
+})
+
+async function sendPrompt(prompt) {
+    const response = await model.invoke(prompt)
+    messages.push(
+        ['ai', response.content]
+    )
+    return response.content
+
+}
 
 
 
