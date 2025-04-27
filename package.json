@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "scripts": {
+    "embed": "node --env-file=.env --watch embeddings.js",
+    "start": "node --env-file=.env --watch server.js"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.3.44",
+    "@langchain/openai": "^0.5.5",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "langchain": "^0.3.21"
+  }
+}
